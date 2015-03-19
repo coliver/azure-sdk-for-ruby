@@ -29,15 +29,28 @@ Loggerx = Azure::Core::Logger
 module Azure
   module BaseManagement
     class BaseManagementService
-      def initialize
-        validate_configuration
-        cert_file = File.read(Azure.config.management_certificate)
+      def initialize(subscription_id=nil,management_endpoint=nil,management_certificate=nil)
+        validate_configuration(subscription_id,management_endpoint,management_certificate)
+
+        if subscription_id
+          Azure.config.subscription_id = subscription_id
+        end
+
+        if management_endpoint
+          Azure.config.management_endpoint = management_endpoint
+        end
+
+        cert_file = if management_certificate
+                      management_certificate
+                    else
+                      File.read(Azure.config.management_certificate)
+                    end
         begin
-          if Azure.config.management_certificate =~ /(pem)$/
+          if management_certificate || Azure.config.management_certificate =~ /(pem)$/
             certificate_key = OpenSSL::X509::Certificate.new(cert_file)
             private_key = OpenSSL::PKey::RSA.new(cert_file)
           else
-          # Parse pfx content
+            # Parse pfx content
             cert_content = OpenSSL::PKCS12.new(Base64.decode64(cert_file))
             certificate_key = OpenSSL::X509::Certificate.new(
               cert_content.certificate.to_pem
@@ -54,22 +67,25 @@ module Azure
         end
       end
 
-      def validate_configuration
-        subs_id = Azure.config.subscription_id
+      def validate_configuration(subscription_id=nil,management_endpoint=nil,management_certificate=nil)
+        subs_id = subscription_id || Azure.config.subscription_id
         error_message = 'Subscription ID not valid.'
         raise error_message if subs_id.nil? || subs_id.empty?
 
-        m_ep = Azure.config.management_endpoint
+        m_ep = management_endpoint || Azure.config.management_endpoint
         error_message = 'Management endpoint not valid.'
         raise error_message if m_ep.nil? || m_ep.empty?
 
-        m_cert = Azure.config.management_certificate
-        error_message = "Could not read from file '#{m_cert}'."
-        raise error_message unless test('r', m_cert)
+        m_cert = management_certificate || Azure.config.management_certificate
 
-        m_cert = Azure.config.management_certificate
-        error_message = 'Management certificate expects a .pem or .pfx file.'
-        raise error_message unless m_cert =~ /(pem|pfx)$/
+        if management_certificate.nil?
+          error_message = "Could not read from file '#{m_cert}'."
+          raise error_message unless test('r', m_cert)
+
+          m_cert = Azure.config.management_certificate
+          error_message = 'Management certificate expects a .pem or .pfx file.'
+          raise error_message unless m_cert =~ /(pem|pfx)$/
+        end
       end
 
       # Public: Gets a list of regional data center locations from the server
