@@ -17,8 +17,8 @@ require 'azure/cloud_service_management/serialization'
 module Azure
   module CloudServiceManagement
     class CloudServiceManagementService < BaseManagementService
-      def initialize
-        super()
+      def initialize(options={})
+        super(options={})
       end
 
       # Public: Creates a new cloud service in Windows Azure.

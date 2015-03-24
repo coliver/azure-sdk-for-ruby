@@ -29,24 +29,31 @@ Loggerx = Azure::Core::Logger
 module Azure
   module BaseManagement
     class BaseManagementService
-      def initialize(subscription_id=nil,management_endpoint=nil,management_certificate=nil)
-        validate_configuration(subscription_id,management_endpoint,management_certificate)
+      # options can include options[:subscription_id],management_endpoint,management_certificate
+      def initialize(options={})
 
-        if subscription_id
-          Azure.config.subscription_id = subscription_id
+        validate_configuration(options)
+
+        if options[:subscription_id]
+          Azure.config.subscription_id = options[:subscription_id]
         end
 
-        if management_endpoint
-          Azure.config.management_endpoint = management_endpoint
+        if options[:management_endpoint]
+          Azure.config.management_endpoint = options[:management_endpoint]
         end
 
-        cert_file = if management_certificate
-                      management_certificate
+        cert_file = if options[:management_certificate]
+                      Azure.config.management_certificate = options[:management_certificate]
                     else
-                      File.read(Azure.config.management_certificate)
+                      if File.file?(Azure.config.management_certificate)
+                        File.read(Azure.config.management_certificate)
+                      else
+                        Azure.config.management_certificate
+                      end
                     end
         begin
-          if management_certificate || Azure.config.management_certificate =~ /(pem)$/
+          if (File.file?(Azure.config.management_certificate) && Azure.config.management_certificate  =~ /(pem)$/) ||\
+          Azure.config.management_certificate =~ /^-----BEGIN RSA PRIVATE KEY-----/
             certificate_key = OpenSSL::X509::Certificate.new(cert_file)
             private_key = OpenSSL::PKey::RSA.new(cert_file)
           else
@@ -67,18 +74,20 @@ module Azure
         end
       end
 
-      def validate_configuration(subscription_id=nil,management_endpoint=nil,management_certificate=nil)
-        subs_id = subscription_id || Azure.config.subscription_id
+      def validate_configuration(options={})
+        subs_id = options[:subscription_id]|| Azure.config.subscription_id
         error_message = 'Subscription ID not valid.'
         raise error_message if subs_id.nil? || subs_id.empty?
 
-        m_ep = management_endpoint || Azure.config.management_endpoint
+        m_ep = options[:management_endpoint] || Azure.config.management_endpoint
         error_message = 'Management endpoint not valid.'
         raise error_message if m_ep.nil? || m_ep.empty?
 
-        m_cert = management_certificate || Azure.config.management_certificate
+        m_cert = options[:management_certificate] || Azure.config.management_certificate
+        error_message = 'Management certificate not specified.'
+        raise error_message if m_cert.nil? || m_cert.empty?
 
-        if management_certificate.nil?
+        if File.file?(m_cert)
           error_message = "Could not read from file '#{m_cert}'."
           raise error_message unless test('r', m_cert)
 

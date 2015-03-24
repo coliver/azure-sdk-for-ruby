@@ -18,8 +18,8 @@ include Azure::VirtualMachineImageManagement
 module Azure
   module VirtualMachineManagement
     class VirtualMachineManagementService < BaseManagementService
-      def initialize
-        super()
+      def initialize(options = {})
+        super
       end
 
       # Public: Get a lists of virtual machines available under the current subscription.
